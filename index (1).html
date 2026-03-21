@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotter Golf — Find Every Ball. Love Every Round.</title>
+<meta name="description" content="The world's first AI-powered golf ball finder. Point your phone, find your ball. Using computer vision, LiDAR and AR on iPhone.">
+<meta property="og:title" content="Spotter Golf — Find Every Ball. Love Every Round.">
+<meta property="og:description" content="The world's first AI-powered golf ball finder app. No extra hardware. No internet needed. Just faster, cheaper, more enjoyable golf.">
+<meta property="og:url" content="https://spottergolf.com">
+<link rel="canonical" href="https://spottergolf.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --green: #00C875;
+    --green-dark: #009A5A;
+    --green-glow: rgba(0,200,117,0.12);
+    --black: #050A07;
+    --surface: #0D1510;
+    --card: #111A14;
+    --border: rgba(0,200,117,0.15);
+    --text: #F0F5F1;
+    --text-secondary: #7A9082;
+    --text-tertiary: #3D5244;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* ─── GRID BACKGROUND ─── */
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,200,117,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,200,117,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    background: rgba(5,10,7,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .nav-logo span { color: var(--green); }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--green); }
+
+  .nav-cta {
+    background: var(--green);
+    color: var(--black) !important;
+    padding: 10px 22px;
+    border-radius: 100px;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    transition: background 0.2s, transform 0.2s !important;
+  }
+
+  .nav-cta:hover {
+    background: #00E688 !important;
+    transform: translateY(-1px);
+    color: var(--black) !important;
+  }
+
+  /* ─── HERO ─── */
+  #hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 120px 24px 80px;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,200,117,0.18) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--green-glow);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--green);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    animation: fadeInUp 0.6s ease both;
+  }
+
+  .hero-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(64px, 10vw, 140px);
+    line-height: 0.92;
+    letter-spacing: 2px;
+    color: var(--text);
+    margin-bottom: 28px;
+    animation: fadeInUp 0.6s 0.1s ease both;
+  }
+
+  h1 .accent { color: var(--green); }
+
+  h1 .outline {
+    -webkit-text-stroke: 2px rgba(0,200,117,0.4);
+    color: transparent;
+  }
+
+  .hero-sub {
+    font-size: clamp(16px, 2vw, 20px);
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 auto 48px;
+    font-weight: 300;
+    line-height: 1.7;
+    animation: fadeInUp 0.6s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    animation: fadeInUp 0.6s 0.3s ease both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--green);
+    color: var(--black);
+    padding: 16px 32px;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-primary:hover {
+    background: #00E688;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,200,117,0.3);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--text);
+    padding: 16px 32px;
+    border-radius: 100px;
+    font-weight: 500;
+    font-size: 15px;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: all 0.2s;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .hero-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    margin-top: 80px;
+    padding-top: 48px;
+    border-top: 1px solid var(--border);
+    animation: fadeInUp 0.6s 0.4s ease both;
+    flex-wrap: wrap;
+  }
+
+  .hero-stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--green);
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+
+  .hero-stat-label {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* ─── SECTION STYLES ─── */
+  section {
+    position: relative;
+    padding: 100px 24px;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 6vw, 72px);
+    line-height: 0.95;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+  }
+
+  .section-sub {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  #how {
+    background: var(--surface);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2px;
+    margin-top: 64px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .step {
+    padding: 40px 32px;
+    background: var(--card);
+    position: relative;
+    transition: background 0.3s;
+  }
+
+  .step:hover { background: #162019; }
+
+  .step-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .step-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--green-glow);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 22px;
+  }
+
+  .step h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .step p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ─── FEATURES ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 64px;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    transition: transform 0.3s, border-color 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0,200,117,0.3);
+  }
+
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: var(--green-glow);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
+
+  .feature-card h3 {
+    font-size: 19px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .feature-card p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  /* ─── TECH ─── */
+  #tech { background: var(--surface); }
+
+  .tech-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+    margin-top: 64px;
+  }
+
+  .tech-items {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .tech-item {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .tech-item:hover { border-color: rgba(0,200,117,0.3); }
+
+  .tech-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-top: 6px;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(0,200,117,0.5);
+  }
+
+  .tech-item h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .tech-item p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .phone-mockup {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .phone-frame {
+    width: 260px;
+    height: 520px;
+    background: var(--card);
+    border-radius: 40px;
+    border: 2px solid rgba(0,200,117,0.2);
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 8px rgba(0,200,117,0.04),
+      0 40px 80px rgba(0,0,0,0.6),
+      inset 0 0 40px rgba(0,200,117,0.04);
+  }
+
+  .phone-screen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, #0a1a0d 0%, #050a07 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .phone-scan-ring {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,200,117,0.3);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: scanPulse 3s infinite;
+  }
+
+  .phone-scan-ring::before {
+    content: '';
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,200,117,0.5);
+    animation: scanPulse 3s 0.3s infinite;
+  }
+
+  @keyframes scanPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.08); opacity: 0.7; }
+  }
+
+  .phone-scan-icon {
+    font-size: 40px;
+    line-height: 1;
+  }
+
+  .phone-detection {
+    background: rgba(0,200,117,0.15);
+    border: 1px solid rgba(0,200,117,0.4);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    letter-spacing: 1px;
+    animation: blink 2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 90%, 100% { opacity: 1; }
+    95% { opacity: 0.4; }
+  }
+
+  .phone-status {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  /* ─── PRICING ─── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 64px;
+    max-width: 700px;
+  }
+
+  .pricing-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    position: relative;
+  }
+
+  .pricing-card.featured {
+    border-color: var(--green);
+    background: linear-gradient(160deg, #0d2016 0%, #0a1a10 100%);
+  }
+
+  .pricing-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green);
+    color: var(--black);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  .pricing-tier {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .pricing-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .pricing-price span {
+    font-size: 20px;
+    color: var(--text-secondary);
+  }
+
+  .pricing-period {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-bottom: 28px;
+  }
+
+  .pricing-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .pricing-features li {
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pricing-features li::before {
+    content: '✓';
+    color: var(--green);
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .pricing-features li.muted { color: var(--text-tertiary); }
+  .pricing-features li.muted::before { content: '–'; color: var(--text-tertiary); }
+
+  /* ─── CTA BANNER ─── */
+  #cta {
+    background: var(--surface);
+    text-align: center;
+  }
+
+  .cta-inner {
+    background: linear-gradient(135deg, #0d2016 0%, #091509 50%, #0d2016 100%);
+    border: 1px solid rgba(0,200,117,0.2);
+    border-radius: 24px;
+    padding: 80px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta-inner::before {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(0,200,117,0.12) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .cta-inner h2 { position: relative; }
+
+  .cta-inner p {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 480px;
+    margin: 16px auto 40px;
+    position: relative;
+    font-weight: 300;
+  }
+
+  .store-badges {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .store-badge {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 14px 24px;
+    text-decoration: none;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+
+  .store-badge:hover {
+    background: rgba(0,200,117,0.1);
+    border-color: rgba(0,200,117,0.3);
+  }
+
+  .store-badge-icon { font-size: 28px; }
+
+  .store-badge-text { text-align: left; }
+  .store-badge-sub { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
+  .store-badge-name { font-size: 16px; font-weight: 600; }
+
+  /* ─── QR SECTION ─── */
+  #scan {
+    text-align: center;
+    background: var(--black);
+    padding: 80px 24px;
+  }
+
+  .qr-box {
+    display: inline-block;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    margin-top: 40px;
+  }
+
+  .qr-placeholder {
+    width: 180px;
+    height: 180px;
+    background: var(--surface);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 80px;
+    margin: 0 auto 20px;
+    border: 1px solid var(--border);
+  }
+
+  .qr-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  .qr-label {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+  }
+
+  /* ─── PRIVACY POLICY ─── */
+  #privacy {
+    background: var(--surface);
+    padding: 100px 24px;
+  }
+
+  .privacy-content {
+    max-width: 760px;
+  }
+
+  .privacy-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 40px 0 12px;
+  }
+
+  .privacy-content h3:first-of-type { margin-top: 40px; }
+
+  .privacy-content p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin-bottom: 16px;
+  }
+
+  .privacy-content ul {
+    margin: 0 0 16px 20px;
+  }
+
+  .privacy-content ul li {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 6px;
+  }
+
+  .privacy-updated {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 32px;
+    letter-spacing: 1px;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--black);
+    border-top: 1px solid var(--border);
+    padding: 48px 24px;
+  }
+
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .footer-logo span { color: var(--green); }
+
+  .footer-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+    flex-wrap: wrap;
+  }
+
+  .footer-links a {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover { color: var(--green); }
+
+  .footer-copy {
+    font-size: 13px;
+    color: var(--text-tertiary);
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    section { padding: 72px 20px; }
+
+    .tech-grid {
+      grid-template-columns: 1fr;
+      gap: 48px;
+    }
+
+    .phone-mockup { order: -1; }
+
+    .pricing-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .footer-inner {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .hero-stats { gap: 32px; }
+  }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0 auto;
+    max-width: 1100px;
+  }
+
+  /* ─── SEIS BADGE ─── */
+  .seis-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,200,0,0.08);
+    border: 1px solid rgba(255,200,0,0.2);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #FFD700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.5px;
+    margin-top: 24px;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">SPOTTER <span>GOLF</span></a>
+  <ul class="nav-links">
+    <li><a href="#how">How it Works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#privacy">Privacy</a></li>
+    <li><a href="#cta" class="nav-cta">Download</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="grid-bg"></div>
+  <div class="hero-glow"></div>
+  <div style="position:relative; z-index:1;">
+    <div class="hero-badge">World's first AI golf ball finder</div>
+    <h1>FIND<br><span class="outline">EVERY</span><br><span class="accent">BALL</span></h1>
+    <p class="hero-sub">Point your iPhone at the rough. Our AI finds your ball in seconds — using computer vision, LiDAR and AR. No extra hardware. No internet needed.</p>
+    <div class="hero-actions">
+      <a href="#cta" class="btn-primary">
+        <span>⬇</span> Download on iOS
+      </a>
+      <a href="#how" class="btn-secondary">
+        See how it works →
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-num">1B+</div>
+        <div class="hero-stat-label">Balls lost per year</div>
+      </div>
+      <div style="width:1px; height:48px; background:var(--border);"></div>
+      <div>
+        <div class="hero-stat-num">30m</div>
+        <div class="hero-stat-label">Avg. time lost per round</div>
+      </div>
+      <div style="width:1px; height:48px; background:var(--border);"></div>
+      <div>
+        <div class="hero-stat-num">97%</div>
+        <div class="hero-stat-label">AI detection accuracy</div>
+      </div>
+      <div style="width:1px; height:48px; background:var(--border);"></div>
+      <div>
+        <div class="hero-stat-num">80M</div>
+        <div class="hero-stat-label">Global golfers</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">// How it works</div>
+      <h2>SCAN. DETECT.<br>FIND.</h2>
+      <p class="section-sub">Three steps. Seconds. Back on the fairway.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">01 —</div>
+        <div class="step-icon">📍</div>
+        <h3>Walk to the area</h3>
+        <p>Head to where you think the ball landed. Get within 1–6 metres of the search area.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02 —</div>
+        <div class="step-icon">📱</div>
+        <h3>Point and sweep</h3>
+        <p>Open the scanner and sweep your iPhone slowly like a metal detector. The AI processes 30 frames per second.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03 —</div>
+        <div class="step-icon">🎯</div>
+        <h3>Follow the trail</h3>
+        <p>A bounding box appears with distance and confidence score. On Pro iPhones, an AR trail guides you directly to the ball.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04 —</div>
+        <div class="step-icon">✅</div>
+        <h3>Confirm and log</h3>
+        <p>Tap found, log the brand and terrain notes. Your stats update automatically. Back in play in seconds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">// Features</div>
+      <h2>BUILT FOR<br>REAL GOLF</h2>
+      <p class="section-sub">Everything you need. Nothing you don't. Built for the course, not the lab.</p>
+    </div>
+    <div class="features-grid reveal">
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>97.2% accuracy AI model</h3>
+        <p>Custom-trained YOLOv11 model specifically built on golf balls in every condition — rough, leaves, sand, shadow. Runs entirely on-device.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <h3>LiDAR depth sensing</h3>
+        <p>On iPhone 12 Pro and later, LiDAR provides real-time distance measurement and an AR trail guiding you directly to the ball's position.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌙</div>
+        <h3>Night mode</h3>
+        <p>Low-light scanning with exposure adjustment for early mornings, late afternoons, and courses in heavy tree cover.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔌</div>
+        <h3>No internet needed</h3>
+        <p>Everything runs on-device. No signal required. Works on remote courses, in dead zones, and anywhere your round takes you.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Round tracking & stats</h3>
+        <p>Track balls found per round, time saved, course history, and streaks. Your stats build over time into a personal record of your game.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👥</div>
+        <h3>Playing partners</h3>
+        <p>Track your whole group's balls found in one shared session. See who found the most by the 18th hole.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏆</div>
+        <h3>Achievements</h3>
+        <p>First ball, tenth ball, century club. Milestones that keep you scanning and reward consistency across rounds and courses.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗺</div>
+        <h3>Course history</h3>
+        <p>See every course you've played, balls found per visit, and your personal best rounds. Your golf life in data.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section id="tech">
+  <div class="container">
+    <div class="tech-grid">
+      <div class="reveal">
+        <div class="section-label">// Technology</div>
+        <h2>THE TECH<br>INSIDE</h2>
+        <p class="section-sub" style="margin-bottom:40px;">First-to-market combination of AI, LiDAR and AR for golf ball detection. Not possible until now.</p>
+        <div class="tech-items">
+          <div class="tech-item">
+            <div class="tech-dot"></div>
+            <div>
+              <h4>Computer Vision / YOLOv11</h4>
+              <p>Custom-trained object detection model using bounding box detection and confidence scoring. 97.2% mAP accuracy across varied environmental conditions.</p>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-dot"></div>
+            <div>
+              <h4>LiDAR Depth Sensing</h4>
+              <p>Captures millions of precise distance data points per second. Measures exact ball distance and projects 3D world position for AR guidance.</p>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-dot"></div>
+            <div>
+              <h4>Augmented Reality Trail</h4>
+              <p>AR overlay guides the golfer from their position to the ball's exact 3D location. Built on ARKit with ARWorldTracking configuration.</p>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-dot"></div>
+            <div>
+              <h4>On-Device Processing</h4>
+              <p>All AI inference runs on the device using Core ML. No data transmitted. No latency. No dependency on network connectivity.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-mockup reveal">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-scan-ring">
+              <div class="phone-scan-icon">⛳</div>
+            </div>
+            <div class="phone-detection">BALL DETECTED</div>
+            <div class="phone-status">CONFIDENCE: 97% · 2.4M</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">// Pricing</div>
+      <h2>SIMPLE.<br>FAIR.</h2>
+      <p class="section-sub">Free to try. Pro when you're ready. Pays for itself with the first ball you find.</p>
+    </div>
+    <div class="pricing-grid reveal">
+      <div class="pricing-card">
+        <div class="pricing-tier">Free</div>
+        <div class="pricing-price"><span>£</span>0</div>
+        <div class="pricing-period">forever free</div>
+        <ul class="pricing-features">
+          <li>5 scans per day</li>
+          <li>Ball counter & basic stats</li>
+          <li>Course check-in</li>
+          <li class="muted">Unlimited scans</li>
+          <li class="muted">Full round history</li>
+          <li class="muted">Playing partners</li>
+        </ul>
+        <a href="#cta" class="btn-secondary" style="width:100%; text-align:center; justify-content:center;">Get Started</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Most Popular</div>
+        <div class="pricing-tier">Pro</div>
+        <div class="pricing-price"><span>£</span>29<span>.99/yr</span></div>
+        <div class="pricing-period">or £3.99/month · 3-day free trial</div>
+        <ul class="pricing-features">
+          <li>Unlimited scans</li>
+          <li>Full stats & round history</li>
+          <li>Course history & streaks</li>
+          <li>Playing partners tracking</li>
+          <li>All achievements</li>
+          <li>Priority model updates</li>
+        </ul>
+        <a href="#cta" class="btn-primary" style="width:100%; text-align:center; justify-content:center;">Start Free Trial</a>
+      </div>
+    </div>
+    <div class="seis-badge reveal">🇬🇧 &nbsp; UK SEIS Approved — tax-efficient investment available</div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <div class="section-label">// Available now on iOS</div>
+      <h2>STOP LOSING<br>BALLS.</h2>
+      <p>Download Spotter Golf and find every ball, love every round. Free to start. Available on iPhone.</p>
+      <div class="store-badges">
+        <a href="https://apps.apple.com" class="store-badge">
+          <div class="store-badge-icon"></div>
+          <div class="store-badge-text">
+            <div class="store-badge-sub">Download on the</div>
+            <div class="store-badge-name">App Store</div>
+          </div>
+        </a>
+      </div>
+      <p style="margin-top:24px; font-size:13px; color:var(--text-tertiary);">Requires iPhone with iOS 16 or later. LiDAR features require iPhone 12 Pro or later.</p>
+    </div>
+  </div>
+</section>
+
+<!-- QR / SCAN DEEP LINK -->
+<section id="scan" style="text-align:center; padding:80px 24px;">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">// On the course</div>
+      <h2>SCAN TO<br>OPEN</h2>
+      <p class="section-sub" style="margin:0 auto;">See this QR code on a scorecard or buggy? Scan it to open Spotter Golf directly on your phone — no App Store needed if already installed.</p>
+      <div class="qr-box">
+        <div class="qr-placeholder">⬜</div>
+        <div class="qr-url">spottergolf.com/scan</div>
+        <div class="qr-label">Opens the scanner directly</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY POLICY -->
+<section id="privacy">
+  <div class="container">
+    <div class="privacy-content reveal">
+      <div class="section-label">// Legal</div>
+      <h2>PRIVACY<br>POLICY</h2>
+      <div class="privacy-updated">Last updated: March 2026</div>
+
+      <p>This Privacy Policy describes how Spotter Golf Ltd ("we", "us", or "our") collects, uses, and protects your personal information when you use the Spotter Golf mobile application ("the App") and website at spottergolf.com.</p>
+
+      <h3>1. Who We Are</h3>
+      <p>Spotter Golf Ltd is a company registered in England and Wales. You can contact us at <a href="mailto:contact@spottergolf.com" style="color:var(--green);">contact@spottergolf.com</a>.</p>
+
+      <h3>2. Information We Collect</h3>
+      <p>We collect the following information when you use the App:</p>
+      <ul>
+        <li><strong>Account information:</strong> Name and email address provided via Sign in with Apple, if you choose to create an account.</li>
+        <li><strong>Profile information:</strong> Country, home golf club, handicap index, and ball markings that you voluntarily provide.</li>
+        <li><strong>Usage data:</strong> Rounds played, balls found, scans performed, courses visited, and app interaction data.</li>
+        <li><strong>Location data:</strong> GPS coordinates at the time of ball detection, used to log find locations and support course check-in features. Location is only accessed while you are actively using the App.</li>
+        <li><strong>Device information:</strong> Device type, iOS version, and app version for troubleshooting and compatibility purposes.</li>
+      </ul>
+
+      <h3>3. How We Use Your Information</h3>
+      <ul>
+        <li>To provide and improve the App's core ball-detection features</li>
+        <li>To personalise your experience and display your stats and history</li>
+        <li>To send monthly usage summaries via local notifications (if you grant permission)</li>
+        <li>To improve our AI detection model using anonymised, aggregated detection data</li>
+        <li>To communicate with you about your account or subscription</li>
+        <li>To comply with our legal obligations</li>
+      </ul>
+
+      <h3>4. Legal Basis for Processing (UK GDPR)</h3>
+      <p>We process your personal data on the following legal bases:</p>
+      <ul>
+        <li><strong>Contract:</strong> Processing necessary to provide the App services you have requested.</li>
+        <li><strong>Legitimate interests:</strong> Improving our AI model and app features using anonymised usage data.</li>
+        <li><strong>Consent:</strong> For optional features such as location tracking, advertising personalisation, and notifications. You may withdraw consent at any time.</li>
+      </ul>
+
+      <h3>5. Data Sharing</h3>
+      <p>We do not sell your personal data to third parties. We may share data with:</p>
+      <ul>
+        <li><strong>Apple:</strong> For Sign in with Apple authentication and App Store payment processing.</li>
+        <li><strong>Analytics providers:</strong> Anonymised, aggregated usage data only.</li>
+        <li><strong>Legal authorities:</strong> Where required by law.</li>
+      </ul>
+
+      <h3>6. Data Storage and Security</h3>
+      <p>Your personal data is stored securely. Usage stats and preferences are stored locally on your device using iOS secure storage. Where data is transmitted to our servers, it is encrypted in transit using TLS. We retain your data for as long as your account is active.</p>
+
+      <h3>7. Your Rights (UK GDPR)</h3>
+      <p>You have the following rights regarding your personal data:</p>
+      <ul>
+        <li>Right to access the personal data we hold about you</li>
+        <li>Right to rectification of inaccurate data</li>
+        <li>Right to erasure ("right to be forgotten")</li>
+        <li>Right to restrict or object to processing</li>
+        <li>Right to data portability</li>
+        <li>Right to withdraw consent at any time</li>
+      </ul>
+      <p>To exercise any of these rights, use the "Delete Account & Data" option within the App, or contact us at <a href="mailto:contact@spottergolf.com" style="color:var(--green);">contact@spottergolf.com</a>. We will respond within 30 days.</p>
+
+      <h3>8. Children's Privacy</h3>
+      <p>The App is not directed at children under the age of 13. We do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.</p>
+
+      <h3>9. App Tracking Transparency</h3>
+      <p>If you grant permission via Apple's App Tracking Transparency prompt, we may use your data for personalised advertising and analytics. You can change this permission at any time in your iPhone Settings.</p>
+
+      <h3>10. Location Data</h3>
+      <p>Location access is used solely to log the GPS coordinates of golf ball finds and to identify nearby courses. We request "While Using the App" location permission only. Location data is not shared with third parties and is stored locally on your device.</p>
+
+      <h3>11. Cameras and Sensors</h3>
+      <p>The App uses your iPhone camera and LiDAR sensor to scan for golf balls. The camera feed is processed entirely on-device in real time. No camera footage or images are captured, stored, or transmitted.</p>
+
+      <h3>12. Changes to This Policy</h3>
+      <p>We may update this Privacy Policy from time to time. We will notify you of significant changes via the App. The current version is always available at spottergolf.com/privacy.</p>
+
+      <h3>13. Contact Us</h3>
+      <p>For any privacy-related questions or to exercise your rights, contact us at:<br>
+      <a href="mailto:contact@spottergolf.com" style="color:var(--green);">contact@spottergolf.com</a><br>
+      Spotter Golf Ltd, England and Wales</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <a href="/" class="footer-logo">SPOTTER <span>GOLF</span></a>
+    <ul class="footer-links">
+      <li><a href="#how">How it Works</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#privacy">Privacy Policy</a></li>
+      <li><a href="mailto:contact@spottergolf.com">Contact</a></li>
+    </ul>
+    <div class="footer-copy">© 2026 Spotter Golf Ltd. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+  // Deep link handler — spottergolf.com/scan opens the app
+  if (window.location.pathname === '/scan') {
+    const appScheme = 'spottergolf://scan';
+    const appStoreURL = 'https://apps.apple.com/app/spotter-golf';
+    window.location.href = appScheme;
+    setTimeout(() => { window.location.href = appStoreURL; }, 2000);
+  }
+
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  reveals.forEach(el => observer.observe(el));
+
+  // Nav active state on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+      if (window.scrollY >= section.offsetTop - 120) {
+        current = section.getAttribute('id');
+      }
+    });
+    navLinks.forEach(link => {
+      link.style.color = link.getAttribute('href') === `#${current}`
+        ? 'var(--green)'
+        : '';
+    });
+  });
+</script>
+
+</body>
+</html>
+```
