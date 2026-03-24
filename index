@@ -458,13 +458,13 @@
       <div class="pricing-card">
         <div class="pricing-tier">Free</div>
         <div class="pricing-price" style="font-size:40px;letter-spacing:-1px;"><span>£</span>0</div>
-        <div class="pricing-period">Try Spotter for free</div>
+        <div class="pricing-period">Try it on the course</div>
         <ul class="pricing-features" style="margin-top:20px;">
-          <li>Limited scans per round</li>
-          <li>See how it works on the course</li>
-          <li>No commitment</li>
+          <li>3 scans to try it out</li>
           <li class="na">Unlimited scans</li>
-          <li class="na">Full stats & history</li>
+          <li class="na">Stats & round history</li>
+          <li class="na">Course history</li>
+          <li class="na">Achievements & streaks</li>
         </ul>
         <a href="#cta" class="btn-secondary" style="width:100%;text-align:center;justify-content:center;">Download Free</a>
       </div>
